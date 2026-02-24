@@ -54,6 +54,7 @@ video {
 
 <script>
 
+// Telegram init
 const tg = window.Telegram?.WebApp;
 if (tg) tg.expand();
 
@@ -83,16 +84,45 @@ const vastUrl =
 `https://ssp.wink.ru/v1/rt/avod/vast?ad_place_type=preroll&age_value=18&broadcast_type=ott&client_id=${deviceId}&client_version=&domain=${domain}&embedded=P5&is_child=false&is_paid=0&location=100001&san=web_vast_code&ad_position=1&content_id=23080&device_type=NCWEB&web_client_type=mobile`;
 
 
-// ===== Загрузка VAST =====
-async function loadVast() {
-  const res = await fetch(vastUrl);
+// ===== Рекурсивная загрузка VAST (Wrapper support) =====
+async function fetchVast(url, depth = 0) {
+
+  if (depth > 5) {
+    throw new Error("Слишком много VAST Wrapper");
+  }
+
+  const res = await fetch(url);
   const xmlText = await res.text();
+
   const xml = new DOMParser().parseFromString(xmlText, "text/xml");
 
-  // MediaFile
+  // Проверка на Wrapper
+  const wrapperTag = xml.querySelector("Wrapper VASTAdTagURI");
+
+  if (wrapperTag) {
+    const nextUrl = wrapperTag.textContent.trim();
+    console.log("Wrapper найден, грузим:", nextUrl);
+    return fetchVast(nextUrl, depth + 1);
+  }
+
+  return xml;
+}
+
+
+// ===== Загрузка и парсинг =====
+async function loadVast() {
+
+  tracking = {};
+  clickThroughUrl = null;
+  quartilesFired = {};
+
+  const xml = await fetchVast(vastUrl);
+
   const mediaFile = xml.querySelector("MediaFile");
+
   if (!mediaFile) {
-    alert("MediaFile не найден");
+    console.log("XML ответ:", xml);
+    alert("MediaFile не найден даже после Wrapper");
     return;
   }
 
@@ -130,7 +160,7 @@ function fireTracking(event) {
 }
 
 
-// ===== События видео =====
+// ===== Видео события =====
 video.addEventListener("play", () => {
   fireTracking("impression");
   fireTracking("start");
@@ -176,11 +206,17 @@ clickLayer.addEventListener("click", () => {
 });
 
 
-// ===== Запуск по кнопке (обязательно для TMA) =====
+// ===== Запуск по кнопке =====
 btn.addEventListener("click", async () => {
   btn.style.display = "none";
-  await loadVast();
-  await video.play();
+
+  try {
+    await loadVast();
+    await video.play();
+  } catch (e) {
+    console.error(e);
+    alert("Ошибка загрузки VAST");
+  }
 });
 
 </script>
