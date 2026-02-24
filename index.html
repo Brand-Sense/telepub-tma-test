@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TMA Ad Player</title>
+<title>TMA Player</title>
 
 <style>
 html, body {
@@ -12,7 +12,7 @@ html, body {
     background:#000;
     height:100%;
     overflow:hidden;
-    font-family: Arial;
+    font-family:Arial;
 }
 
 video {
@@ -22,15 +22,15 @@ video {
     background:#000;
 }
 
-#loader {
+#loader{
     position:absolute;
     top:50%;
     left:50%;
-    transform:translate(-50%, -50%);
+    transform:translate(-50%,-50%);
     color:white;
 }
 
-#skipBtn {
+#skipBtn{
     position:absolute;
     top:20px;
     right:20px;
@@ -39,11 +39,11 @@ video {
     padding:8px 14px;
     border-radius:6px;
     display:none;
-    cursor:pointer;
     z-index:10;
+    cursor:pointer;
 }
 
-#muteBtn {
+#muteBtn{
     position:absolute;
     bottom:20px;
     right:20px;
@@ -51,11 +51,11 @@ video {
     color:white;
     padding:8px 14px;
     border-radius:6px;
-    cursor:pointer;
     z-index:10;
+    cursor:pointer;
 }
 
-#clickLayer {
+#clickLayer{
     position:absolute;
     top:0;
     left:0;
@@ -77,7 +77,7 @@ video {
 <script>
 
 const tg = window.Telegram?.WebApp;
-if (tg) tg.expand();
+if(tg) tg.expand();
 
 const video = document.getElementById("adVideo");
 const loader = document.getElementById("loader");
@@ -87,65 +87,34 @@ const clickLayer = document.getElementById("clickLayer");
 
 let tracking = {};
 let clickThroughUrl = null;
-let quartiles = {};
+let quartilesFired = {};
 let skipAvailable = false;
 
-const POSTBACK_URL = "https://yourpostback.com/postback";
-
-// ===== CONFIG =====
-
-const VAST_URL = "PUT_YOUR_VAST_HERE";
-
-const deviceId = localStorage.device_id || crypto.randomUUID();
-localStorage.device_id = deviceId;
-
-// ===== LOGGING =====
-
-function logEvent(event, data={}) {
-
-    fetch(POSTBACK_URL,{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-            event,
-            device_id: deviceId,
-            timestamp: Date.now(),
-            ...data
-        })
-    }).catch(()=>{});
-
+// ===== DEVICE ID =====
+function getDeviceId(){
+    let id = localStorage.getItem("device_id");
+    if(!id){
+        id = crypto.randomUUID();
+        localStorage.setItem("device_id",id);
+    }
+    return id;
 }
 
-// ===== TRACKING =====
+const deviceId = getDeviceId();
+const domain = location.hostname;
 
-function fireTracking(event){
+// ===== VAST URL (ВАЖНО — как в твоём рабочем коде) =====
 
-    if (!tracking[event]) return;
+const vastUrl =
+`https://ssp.wink.ru/v1/rt/avod/vast?ad_place_type=preroll&age_value=18&broadcast_type=ott&client_id=${deviceId}&client_version=&domain=${domain}&embedded=P5&is_child=false&is_paid=0&location=100001&san=web_vast_code&ad_position=1&content_id=23080&device_type=NCWEB&web_client_type=mobile`;
 
-    tracking[event].forEach(url=>{
-        fetch(url).catch(()=>{});
-    });
-
-    logEvent(event);
-
-}
-
-// ===== TIMEOUT FETCH =====
-
-function fetchTimeout(url, timeout=8000){
-    return Promise.race([
-        fetch(url),
-        new Promise((_,rej)=>setTimeout(()=>rej("timeout"),timeout))
-    ]);
-}
-
-// ===== WRAPPER SUPPORT =====
+// ===== Wrapper Resolver =====
 
 async function fetchVast(url, depth=0){
 
     if(depth>5) throw "wrapper depth";
 
-    const res = await fetchTimeout(url);
+    const res = await fetch(url);
     const text = await res.text();
 
     const xml = new DOMParser().parseFromString(text,"text/xml");
@@ -159,9 +128,21 @@ async function fetchVast(url, depth=0){
     return xml;
 }
 
-// ===== LOAD AD =====
+// ===== TRACKING =====
 
-async function loadAd(){
+function fireTracking(event){
+
+    if(!tracking[event]) return;
+
+    tracking[event].forEach(url=>{
+        fetch(url).catch(()=>{});
+    });
+
+}
+
+// ===== LOAD VAST =====
+
+async function loadVast(){
 
     loader.style.display="block";
 
@@ -169,16 +150,15 @@ async function loadAd(){
 
         tracking = {};
         clickThroughUrl = null;
-        quartiles = {};
+        quartilesFired = {};
         skipAvailable = false;
         skipBtn.style.display="none";
 
-        const xml = await fetchVast(VAST_URL);
+        const xml = await fetchVast(vastUrl);
 
         const mediaFile = xml.querySelector("MediaFile");
 
         if(!mediaFile){
-            logEvent("no_media");
             loader.innerText="Реклама завершена";
             return;
         }
@@ -200,14 +180,12 @@ async function loadAd(){
 
         loader.style.display="none";
 
-        video.muted = true;
+        video.muted=true;
         await video.play();
 
     }catch(e){
-
         console.log(e);
         loader.innerText="Ошибка загрузки рекламы";
-
     }
 }
 
@@ -216,7 +194,6 @@ async function loadAd(){
 video.addEventListener("play",()=>{
     fireTracking("impression");
     fireTracking("start");
-    logEvent("play");
 });
 
 video.addEventListener("timeupdate",()=>{
@@ -230,18 +207,18 @@ video.addEventListener("timeupdate",()=>{
         skipBtn.style.display="block";
     }
 
-    if(p>=0.25 && !quartiles.q1){
-        quartiles.q1=true;
+    if(p>=0.25 && !quartilesFired.q1){
+        quartilesFired.q1=true;
         fireTracking("firstQuartile");
     }
 
-    if(p>=0.5 && !quartiles.q2){
-        quartiles.q2=true;
+    if(p>=0.5 && !quartilesFired.q2){
+        quartilesFired.q2=true;
         fireTracking("midpoint");
     }
 
-    if(p>=0.75 && !quartiles.q3){
-        quartiles.q3=true;
+    if(p>=0.75 && !quartilesFired.q3){
+        quartilesFired.q3=true;
         fireTracking("thirdQuartile");
     }
 
@@ -249,28 +226,14 @@ video.addEventListener("timeupdate",()=>{
 
 video.addEventListener("ended",()=>{
     fireTracking("complete");
-    logEvent("complete");
+    loader.style.display="block";
     loader.innerText="Реклама завершена";
-});
-
-// ===== CLICK =====
-
-clickLayer.addEventListener("click",()=>{
-
-    if(!clickThroughUrl) return;
-
-    fireTracking("click");
-    logEvent("click",{url:clickThroughUrl});
-
-    if(tg) tg.openLink(clickThroughUrl);
-    else window.open(clickThroughUrl,"_blank");
-
 });
 
 // ===== CONTROLS =====
 
 skipBtn.onclick=()=>{
-    logEvent("skip");
+    fireTracking("skip");
     video.pause();
     loader.innerText="Реклама завершена";
 };
@@ -278,12 +241,24 @@ skipBtn.onclick=()=>{
 muteBtn.onclick=()=>{
     video.muted=!video.muted;
     muteBtn.innerText = video.muted ? "🔇" : "🔊";
-    logEvent(video.muted?"muted":"unmuted");
+};
+
+// ===== CLICK =====
+
+clickLayer.onclick=()=>{
+
+    if(!clickThroughUrl) return;
+
+    fireTracking("click");
+
+    if(tg) tg.openLink(clickThroughUrl);
+    else window.open(clickThroughUrl,"_blank");
+
 };
 
 // ===== START =====
 
-loadAd();
+loadVast();
 
 </script>
 
