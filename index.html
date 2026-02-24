@@ -42,7 +42,7 @@
 
   // Вставка плеера Wink
   const frame = WinkEmbedSDK.api.insertFrame(container, {
-    trackId: 149613484,  // твой тестовый трек
+    trackId: 149613484,  // твой трек
     partnerId: 'P0',
     frameOptions: { width: '640px', height: '360px' }
   });
@@ -55,7 +55,7 @@
       console.log(`Событие отправлено в Метрику: ${eventName}`, payload);
   }
 
-  // Логирование событий рекламы
+  // Логирование всех событий плеера
   frame.on(events.AD_PLAYBACK, (payload) => { ymLogEvent('ad_playback', payload); });
   frame.on(events.AD_END, (payload) => { ymLogEvent('ad_end', payload); });
   frame.on(events.AD_SKIP, (payload) => { ymLogEvent('ad_skip', payload); });
@@ -65,9 +65,10 @@
   frame.on(events.PLAYBACK_START, (payload) => { ymLogEvent('playback_start', payload); });
   frame.on(events.PLAYBACK_END, (payload) => { ymLogEvent('playback_end', payload); });
 
-  // Отслеживание клика по кнопке через Яндекс.Метрику
+  // Отслеживание клика по кнопке через Яндекс.Метрику с передачей clckid
+  const clckid = '99b4cf91'; // ID ссылки из Кликера
   document.getElementById('test-button').addEventListener('click', function() {
-      ymLogEvent('click_test_button', { url: this.href });
+      ymLogEvent('click_test_button', { url: this.href, clckid: clckid });
   });
 </script>
 
