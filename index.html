@@ -1,113 +1,81 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Telepub Mini App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      background: #0f0f0f;
-      color: #ffffff;
-      font-family: Arial, sans-serif;
-    }
-    .screen {
-      display: none;
-      padding: 16px;
-    }
-    .screen.active {
-      display: block;
-    }
-    .card {
-      background: #1c1c1c;
-      border-radius: 14px;
-      padding: 16px;
-    }
-    .poster {
-      width: 100%;
-      border-radius: 10px;
-      margin-bottom: 12px;
-      cursor: pointer;
-    }
-    .btn {
-      background: #5b5bff;
-      padding: 14px;
-      text-align: center;
-      border-radius: 10px;
-      margin-top: 12px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    .btn.back {
-      background: #2a2a2a;
-    }
-    iframe {
-      width: 100%;
-      height: 360px;
-      border: none;
-      border-radius: 12px;
-      margin-top: 12px;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telepub Mini App с Wink Player</title>
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+    padding: 20px;
+    background-color: #f9f9f9;
+  }
+  .video-container {
+    max-width: 640px;
+    margin: 0 auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .btn {
+    margin-top: 16px;
+  }
+  .btn a {
+    padding: 12px 28px;
+    background-color: #ff3b30;
+    color: white;
+    font-size: 18px;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .btn a:hover {
+    background-color: #e02c20;
+  }
+</style>
 </head>
-
 <body>
 
-<!-- SCREEN 1: INTRO -->
-<div id="intro" class="screen active">
-  <div class="card">
-    <img
-      class="poster"
-      src="./poster.jpg"
-      alt="Telepub preview"
-      onclick="openPlayer()"
-    >
-    <h2>Telepub</h2>
-    <p>Нажмите кнопку или постер, чтобы начать просмотр видео</p>
+<h2>Telepub Mini App Test с Wink Player</h2>
 
-    <div class="btn" onclick="openPlayer()">
-      ▶️ Смотреть видео
-    </div>
-  </div>
+<!-- Контейнер для Wink Player -->
+<div id="wink-player" class="video-container"></div>
+
+<!-- Кнопка "Купить" под видео -->
+<div class="btn">
+  <a href="https://brand-sense.github.io/tma_traffic_test/?utm_source=telegram&utm_medium=miniapp&utm_campaign=test_tma&utm_content=btn1"
+     target="_blank">
+    Купить
+  </a>
 </div>
 
-<!-- SCREEN 2: PLAYER -->
-<div id="player" class="screen">
-  <div class="btn back" onclick="back()">
-    ← Назад
-  </div>
-
-  <iframe
-    id="videoFrame"
-    src=""
-    allowfullscreen
-    frameborder="0"
-  ></iframe>
-</div>
-
+<!-- UMD SDK Wink -->
+<script src="https://static-adtech.wink.ru/embed-sdk/winkembed.umd.js"></script>
 <script>
-  const tg = window.Telegram.WebApp;
-  tg.ready();
-  tg.expand();
+  // Инициализация Wink Player
+  const container = document.getElementById("wink-player");
 
-  function openPlayer() {
-    document.getElementById('intro').classList.remove('active');
-    document.getElementById('player').classList.add('active');
+  // Вставляем фрейм плеера
+  const frame = WinkEmbedSDK.api.insertFrame(container, {
+    trackId: 1, // замените на реальный trackId, выданный менеджером Wink
+    partnerId: 'myId3931',
+    frameOptions: {
+      width: "100%",
+      height: "360px"
+    }
+  });
 
-    // Загружаем твой iframe плеер
-    document.getElementById('videoFrame').src = "https://mover.uz/video/embed/tgjZfLdT";
-  }
+  // Пример подписки на событие окончания рекламы
+  const { events } = WinkEmbedSDK;
+  frame.on(events.AD_END, ({ ad_place_type, ad_position, duration }) => {
+    console.log("Реклама завершена:", ad_place_type, ad_position, duration);
+  });
 
-  function back() {
-    document.getElementById('player').classList.remove('active');
-    document.getElementById('intro').classList.add('active');
-
-    // Очищаем iframe, чтобы остановить видео
-    document.getElementById('videoFrame').src = "";
-  }
+  // Событие окончания видео
+  frame.on(events.PLAYBACK_END, ({ content_id, ads_shown, position }) => {
+    console.log("Видео завершено:", content_id, ads_shown, position);
+  });
 </script>
 
 </body>
