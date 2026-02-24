@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>TMA Wink VAST Test</title>
+  <title>TMA Wink VAST Mobile Test</title>
   <style>
     body, html {
       margin: 0; padding: 0;
@@ -30,18 +30,26 @@
 </head>
 <body>
 
-<div id="player-container">
-  <iframe id="vast-frame"
-    src="https://ssp.wink.ru/v1/rt/avod/vast?ad_place_type=preroll&age_value=18&broadcast_type=ott&client_id=123456789&client_version=&domain=TMA&embedded=P5&is_child=false&is_paid=0&location=100001&san=web_vast_code&ad_position=1&content_id=23080&device_type=NCWEB&web_client_type=mobile"
-    width="100%" height="100%" frameborder="0" allowfullscreen>
-  </iframe>
-  <button id="fullscreen-btn">FullScreen</button>
-</div>
+<div id="player-container"></div>
+<button id="fullscreen-btn">FullScreen</button>
 
+<!-- Wink Embed SDK -->
+<script src="https://static-adtech.wink.ru/embed-sdk/winkembed.umd.js"></script>
 <script>
   const container = document.getElementById('player-container');
-  const btn = document.getElementById('fullscreen-btn');
 
+  // Вставляем плеер Wink
+  const frame = WinkEmbedSDK.api.insertFrame(container, {
+    trackId: 23080,       // TrackId рекламного блока (preroll)
+    partnerId: 'P0',      // твой Partner ID
+    frameOptions: {
+      width: "360px",
+      height: "640px"
+    }
+  });
+
+  // Кнопка FullScreen
+  const btn = document.getElementById('fullscreen-btn');
   btn.addEventListener('click', () => {
     if (container.requestFullscreen) {
       container.requestFullscreen();
@@ -50,6 +58,15 @@
     } else if (container.msRequestFullscreen) { /* IE11 */
       container.msRequestFullscreen();
     }
+  });
+
+  // Пример логирования событий рекламы
+  const { events } = WinkEmbedSDK;
+  frame.on(events.PLAYBACK_START, (payload) => {
+    console.log('Видео стартовало:', payload);
+  });
+  frame.on(events.AD_END, (payload) => {
+    console.log('Реклама закончилась:', payload);
   });
 </script>
 
