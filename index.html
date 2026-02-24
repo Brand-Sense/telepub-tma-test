@@ -2,169 +2,73 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Telepub Player</title>
-
-<style>
-  body {
-    margin: 0;
-    font-family: sans-serif;
-    background: black;
-    text-align: center;
-    color: white;
-  }
-
-  #wink-player {
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  iframe {
-    width: 100%;
-    height: 360px;
-    border: none;
-  }
-
-  .controls {
-    margin-top: 10px;
-  }
-
-  button, a {
-    padding: 12px 20px;
-    font-size: 16px;
-    border-radius: 8px;
-    border: none;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .buy {
-    background: #ff3b30;
-    color: white;
-  }
-
-  .fullscreen {
-    background: #333;
-    color: white;
-    margin-left: 10px;
-  }
-
-  /* fullscreen поведение */
-  #wink-player:fullscreen iframe {
-    height: 100vh;
-  }
-</style>
-</head>
-
-<body>
-
-<h3>Telepub — просмотр</h3>
-
-<div id="wink-player"></div>
-
-<div class="controls">
-  <a class="buy"
-     href="https://brand-sense.github.io/tma_traffic_test/?utm_source=telegram&utm_medium=miniapp&utm_campaign=test_tma&utm_content=btn1"
-     target="_blank">
-    Купить
-  </a>
-
-  <button class="fullscreen" onclick="openFullscreen()">⛶ Развернуть</button>
-</div>
-
+<title>Telepub Test TMA</title>
 <script src="https://static-adtech.wink.ru/embed-sdk/winkembed.umd.js"></script>
 
+<!-- Яндекс.Метрика -->
+<script type="text/javascript" >
+   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+   m[i].l=1*new Date();
+   k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+   ym(106980512, "init", {
+        clickmap:true,
+        trackLinks:true,
+        accurateTrackBounce:true
+   });
+</script>
+<!-- /Яндекс.Метрика -->
+
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+  #player-container { margin-bottom: 20px; }
+  .btn { display:inline-block; padding:10px 20px; background:#007aff; color:#fff; border-radius:5px; text-decoration:none; font-size:16px; }
+  .btn:hover { background:#005bbb; }
+</style>
+</head>
+<body>
+
+<h1>Telepub Test TMA</h1>
+
+<!-- Контейнер для Wink Embed Player -->
+<div id="player-container"></div>
+
+<!-- Кнопка перехода через сокращатель -->
+<a href="https://clck.ru/3S324t" target="_blank" class="btn" id="test-button">Перейти</a>
+
 <script>
-  const container = document.getElementById("wink-player");
+  const container = document.getElementById('player-container');
 
+  // Вставка плеера Wink
   const frame = WinkEmbedSDK.api.insertFrame(container, {
-    trackId: 149613484,
+    trackId: 149613484,  // твой тестовый трек
     partnerId: 'P0',
-    frameOptions: {
-      width: "100%",
-      height: "360px",
-      allowFullscreen: true
-    }
+    frameOptions: { width: '640px', height: '360px' }
   });
 
-  const { events } = WinkEmbedSDK;
+  const events = WinkEmbedSDK.events;
 
-  // =========================
-  // 🚀 AUTO FULLSCREEN
-  // =========================
-  function openFullscreen() {
-    if (container.requestFullscreen) {
-      container.requestFullscreen();
-    } else if (container.webkitRequestFullscreen) {
-      container.webkitRequestFullscreen();
-    }
-
-    // попытка повернуть экран
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('landscape').catch(() => {});
-    }
+  // Функция для отправки событий в Яндекс.Метрику
+  function ymLogEvent(eventName, payload) {
+      ym(106980512,'reachGoal', eventName, payload);
+      console.log(`Событие отправлено в Метрику: ${eventName}`, payload);
   }
 
-  // автозапуск fullscreen при старте видео
-  frame.on(events.PLAYBACK_START, () => {
-    console.log("▶️ Видео началось");
+  // Логирование событий рекламы
+  frame.on(events.AD_PLAYBACK, (payload) => { ymLogEvent('ad_playback', payload); });
+  frame.on(events.AD_END, (payload) => { ymLogEvent('ad_end', payload); });
+  frame.on(events.AD_SKIP, (payload) => { ymLogEvent('ad_skip', payload); });
+  frame.on(events.AD_REQUEST, (payload) => { ymLogEvent('ad_request', payload); });
+  frame.on(events.ADS_BLOCK_START, (payload) => { ymLogEvent('ads_block_start', payload); });
+  frame.on(events.ADS_BLOCK_END, (payload) => { ymLogEvent('ads_block_end', payload); });
+  frame.on(events.PLAYBACK_START, (payload) => { ymLogEvent('playback_start', payload); });
+  frame.on(events.PLAYBACK_END, (payload) => { ymLogEvent('playback_end', payload); });
 
-    openFullscreen();
-    sendEvent("playback_start");
+  // Отслеживание клика по кнопке через Яндекс.Метрику
+  document.getElementById('test-button').addEventListener('click', function() {
+      ymLogEvent('click_test_button', { url: this.href });
   });
-
-  // =========================
-  // 📊 ТРЕКИНГ (AdFox / метрика)
-  // =========================
-
-  function sendEvent(name, data = {}) {
-    console.log("TRACK:", name, data);
-
-    // пример — можно отправлять в метрику
-    if (window.ym) {
-      ym(XXXXXX, 'reachGoal', name, data); // вставь ID метрики
-    }
-
-    // или пиксель
-    /*
-    fetch(`https://your-tracker.com/event?e=${name}`);
-    */
-  }
-
-  frame.on(events.AD_PLAYBACK, ({ ad_place_type, ad_position }) => {
-    sendEvent("ad_impression", {
-      type: ad_place_type,
-      pos: ad_position
-    });
-  });
-
-  frame.on(events.AD_END, ({ ad_place_type, ad_position }) => {
-    sendEvent("ad_end", {
-      type: ad_place_type,
-      pos: ad_position
-    });
-  });
-
-  frame.on(events.AD_SKIP, () => {
-    sendEvent("ad_skip");
-  });
-
-  frame.on(events.AD_ERROR, () => {
-    sendEvent("ad_error");
-  });
-
-  frame.on(events.PLAYBACK_END, () => {
-    sendEvent("content_end");
-  });
-
-  // =========================
-  // fallback — клик = fullscreen
-  // =========================
-  container.addEventListener("click", () => {
-    openFullscreen();
-  });
-
 </script>
 
 </body>
