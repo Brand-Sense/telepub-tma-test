@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TMA Player</title>
+<title>TMA Ad Engine</title>
 
 <style>
-html, body {
+html,body{
     margin:0;
     padding:0;
     background:#000;
@@ -15,7 +15,7 @@ html, body {
     font-family:Arial;
 }
 
-video {
+video{
     width:100%;
     height:100%;
     object-fit:contain;
@@ -39,8 +39,8 @@ video {
     padding:8px 14px;
     border-radius:6px;
     display:none;
-    z-index:10;
     cursor:pointer;
+    z-index:10;
 }
 
 #muteBtn{
@@ -51,8 +51,8 @@ video {
     color:white;
     padding:8px 14px;
     border-radius:6px;
-    z-index:10;
     cursor:pointer;
+    z-index:10;
 }
 
 #clickLayer{
@@ -90,45 +90,41 @@ let clickThroughUrl = null;
 let quartilesFired = {};
 let skipAvailable = false;
 
-// ===== DEVICE ID =====
-function getDeviceId(){
-    let id = localStorage.getItem("device_id");
-    if(!id){
-        id = crypto.randomUUID();
-        localStorage.setItem("device_id",id);
-    }
-    return id;
-}
+// ================= CONFIG =================
 
-const deviceId = getDeviceId();
+const POSTBACK_URL = "https://your-postback-endpoint.com/postback";
+
+const deviceId = localStorage.device_id ||
+                 (localStorage.device_id = crypto.randomUUID());
+
 const domain = location.hostname;
 
-// ===== VAST URL (ВАЖНО — как в твоём рабочем коде) =====
+// ===== VAST SOURCE (ОБЯЗАТЕЛЬНО ЗАМЕНИ) =====
 
-const vastUrl =
-`https://ssp.wink.ru/v1/rt/avod/vast?ad_place_type=preroll&age_value=18&broadcast_type=ott&client_id=${deviceId}&client_version=&domain=${domain}&embedded=P5&is_child=false&is_paid=0&location=100001&san=web_vast_code&ad_position=1&content_id=23080&device_type=NCWEB&web_client_type=mobile`;
+const VAST_URL = "PUT_YOUR_VAST_HERE";
 
-// ===== Wrapper Resolver =====
+// ================= LOGGING =================
 
-async function fetchVast(url, depth=0){
+function logEvent(event,data={}){
 
-    if(depth>5) throw "wrapper depth";
+    try{
 
-    const res = await fetch(url);
-    const text = await res.text();
+        fetch(POSTBACK_URL,{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({
+                event,
+                device_id:deviceId,
+                timestamp:Date.now(),
+                ...data
+            })
+        }).catch(()=>{});
 
-    const xml = new DOMParser().parseFromString(text,"text/xml");
+    }catch(e){}
 
-    const wrapper = xml.querySelector("Wrapper VASTAdTagURI");
-
-    if(wrapper){
-        return fetchVast(wrapper.textContent.trim(), depth+1);
-    }
-
-    return xml;
 }
 
-// ===== TRACKING =====
+// ================= TRACKING =================
 
 function fireTracking(event){
 
@@ -138,23 +134,69 @@ function fireTracking(event){
         fetch(url).catch(()=>{});
     });
 
+    logEvent(event);
+
 }
 
-// ===== LOAD VAST =====
+// ================= FETCH WITH TIMEOUT =================
+
+function fetchTimeout(url,timeout=8000){
+
+    return Promise.race([
+        fetch(url),
+        new Promise((_,rej)=>setTimeout(()=>rej("timeout"),timeout))
+    ]);
+
+}
+
+// ================= WRAPPER RESOLVER =================
+
+async function fetchVast(url,depth=0){
+
+    if(depth>5) throw "wrapper depth";
+
+    const res = await fetchTimeout(url);
+
+    const text = await res.text();
+
+    const xml = new DOMParser().parseFromString(text,"text/xml");
+
+    const wrapper = xml.querySelector("Wrapper VASTAdTagURI");
+
+    if(wrapper){
+        return fetchVast(wrapper.textContent.trim(),depth+1);
+    }
+
+    return xml;
+}
+
+// ================= FINISH FLOW =================
+
+function finishAdFlow(){
+
+    video.pause();
+    video.currentTime = 0;
+
+    quartilesFired = {};
+    skipAvailable = false;
+
+    skipBtn.style.display="none";
+
+    loader.style.display="block";
+    loader.innerText="Загрузка рекламы...";
+
+    setTimeout(()=>{
+        loadVast();
+    },300);
+}
+
+// ================= LOAD VAST =================
 
 async function loadVast(){
 
-    loader.style.display="block";
-
     try{
 
-        tracking = {};
-        clickThroughUrl = null;
-        quartilesFired = {};
-        skipAvailable = false;
-        skipBtn.style.display="none";
-
-        const xml = await fetchVast(vastUrl);
+        const xml = await fetchVast(VAST_URL);
 
         const mediaFile = xml.querySelector("MediaFile");
 
@@ -165,6 +207,9 @@ async function loadVast(){
 
         video.src = mediaFile.textContent.trim();
         video.load();
+
+        tracking = {};
+        clickThroughUrl = null;
 
         xml.querySelectorAll("Tracking").forEach(node=>{
             const ev = node.getAttribute("event");
@@ -181,15 +226,22 @@ async function loadVast(){
         loader.style.display="none";
 
         video.muted=true;
-        await video.play();
+
+        try{
+            await video.play();
+        }catch(e){
+            console.log("Autoplay recovery");
+        }
 
     }catch(e){
+
         console.log(e);
         loader.innerText="Ошибка загрузки рекламы";
+
     }
 }
 
-// ===== VIDEO EVENTS =====
+// ================= VIDEO EVENTS =================
 
 video.addEventListener("play",()=>{
     fireTracking("impression");
@@ -226,16 +278,14 @@ video.addEventListener("timeupdate",()=>{
 
 video.addEventListener("ended",()=>{
     fireTracking("complete");
-    loader.style.display="block";
-    loader.innerText="Реклама завершена";
+    finishAdFlow();
 });
 
-// ===== CONTROLS =====
+// ================= CONTROLS =================
 
 skipBtn.onclick=()=>{
     fireTracking("skip");
-    video.pause();
-    loader.innerText="Реклама завершена";
+    finishAdFlow();
 };
 
 muteBtn.onclick=()=>{
@@ -243,20 +293,21 @@ muteBtn.onclick=()=>{
     muteBtn.innerText = video.muted ? "🔇" : "🔊";
 };
 
-// ===== CLICK =====
+// ================= CLICK =================
 
 clickLayer.onclick=()=>{
 
     if(!clickThroughUrl) return;
 
     fireTracking("click");
+    logEvent("click",{url:clickThroughUrl});
 
     if(tg) tg.openLink(clickThroughUrl);
     else window.open(clickThroughUrl,"_blank");
 
 };
 
-// ===== START =====
+// ================= START =================
 
 loadVast();
 
