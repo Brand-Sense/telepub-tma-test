@@ -37,7 +37,7 @@
 </head>
 <body>
 
-<h2>Telepub Mini App Test с Wink Player</h2>
+<h2>Telepub Mini App — Великолепный век, серия 1</h2>
 
 <!-- Контейнер для Wink Player -->
 <div id="wink-player" class="video-container"></div>
@@ -53,26 +53,26 @@
 <!-- UMD SDK Wink -->
 <script src="https://static-adtech.wink.ru/embed-sdk/winkembed.umd.js"></script>
 <script>
-  // Инициализация Wink Player
   const container = document.getElementById("wink-player");
 
-  // Вставляем фрейм плеера
+  // Вставка фрейма плеера через SDK
   const frame = WinkEmbedSDK.api.insertFrame(container, {
-    trackId: 1, // замените на реальный trackId, выданный менеджером Wink
-    partnerId: 'myId3931',
+    trackId: 149613484,   // Великолепный век, серия 1
+    partnerId: 'P0',
     frameOptions: {
       width: "100%",
       height: "360px"
     }
   });
 
-  // Пример подписки на событие окончания рекламы
   const { events } = WinkEmbedSDK;
+
+  // Слушаем события окончания рекламы
   frame.on(events.AD_END, ({ ad_place_type, ad_position, duration }) => {
     console.log("Реклама завершена:", ad_place_type, ad_position, duration);
   });
 
-  // Событие окончания видео
+  // Слушаем завершение видео
   frame.on(events.PLAYBACK_END, ({ content_id, ads_shown, position }) => {
     console.log("Видео завершено:", content_id, ads_shown, position);
   });
