@@ -17,11 +17,27 @@
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  .video-container.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background-color: black;
+  }
+  iframe {
+    width: 100%;
+    height: 360px;
+    border: none;
   }
   .btn {
-    margin-top: 16px;
+    margin-top: 12px;
   }
-  .btn a {
+  .btn a, .btn button {
     padding: 12px 28px;
     background-color: #ff3b30;
     color: white;
@@ -29,9 +45,14 @@
     border-radius: 8px;
     text-decoration: none;
     display: inline-block;
+    border: none;
+    cursor: pointer;
   }
-  .btn a:hover {
+  .btn a:hover, .btn button:hover {
     background-color: #e02c20;
+  }
+  .fullscreen-btn {
+    margin-left: 10px;
   }
 </style>
 </head>
@@ -42,12 +63,13 @@
 <!-- Контейнер для Wink Player -->
 <div id="wink-player" class="video-container"></div>
 
-<!-- Кнопка "Купить" под видео -->
+<!-- Кнопки под видео -->
 <div class="btn">
   <a href="https://brand-sense.github.io/tma_traffic_test/?utm_source=telegram&utm_medium=miniapp&utm_campaign=test_tma&utm_content=btn1"
      target="_blank">
     Купить
   </a>
+  <button class="fullscreen-btn" onclick="toggleFullscreen()">Полный экран</button>
 </div>
 
 <!-- UMD SDK Wink -->
@@ -55,27 +77,31 @@
 <script>
   const container = document.getElementById("wink-player");
 
-  // Вставка фрейма плеера через SDK
+  // Вставка плеера через Wink SDK
   const frame = WinkEmbedSDK.api.insertFrame(container, {
     trackId: 149613484,   // Великолепный век, серия 1
     partnerId: 'P0',
     frameOptions: {
       width: "100%",
-      height: "360px"
+      height: "360px",
+      allowFullscreen: true
     }
   });
 
   const { events } = WinkEmbedSDK;
 
-  // Слушаем события окончания рекламы
   frame.on(events.AD_END, ({ ad_place_type, ad_position, duration }) => {
     console.log("Реклама завершена:", ad_place_type, ad_position, duration);
   });
 
-  // Слушаем завершение видео
   frame.on(events.PLAYBACK_END, ({ content_id, ads_shown, position }) => {
     console.log("Видео завершено:", content_id, ads_shown, position);
   });
+
+  // Функция для раскрытия видео на полный экран
+  function toggleFullscreen() {
+    container.classList.toggle("fullscreen");
+  }
 </script>
 
 </body>
