@@ -3,83 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Telepub Mini App с Wink Player</title>
+<title>Telepub Player</title>
+
 <style>
   body {
+    margin: 0;
     font-family: sans-serif;
+    background: black;
     text-align: center;
-    padding: 20px;
-    background-color: #f9f9f9;
+    color: white;
   }
-  .video-container {
-    max-width: 640px;
+
+  #wink-player {
+    width: 100%;
+    max-width: 900px;
     margin: 0 auto;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    position: relative;
-    transition: all 0.3s ease;
   }
-  .video-container.fullscreen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 9999;
-    background-color: black;
-  }
+
   iframe {
     width: 100%;
     height: 360px;
     border: none;
   }
-  .btn {
-    margin-top: 12px;
+
+  .controls {
+    margin-top: 10px;
   }
-  .btn a, .btn button {
-    padding: 12px 28px;
-    background-color: #ff3b30;
-    color: white;
-    font-size: 18px;
+
+  button, a {
+    padding: 12px 20px;
+    font-size: 16px;
     border-radius: 8px;
-    text-decoration: none;
-    display: inline-block;
     border: none;
+    text-decoration: none;
     cursor: pointer;
   }
-  .btn a:hover, .btn button:hover {
-    background-color: #e02c20;
+
+  .buy {
+    background: #ff3b30;
+    color: white;
   }
-  .fullscreen-btn {
+
+  .fullscreen {
+    background: #333;
+    color: white;
     margin-left: 10px;
+  }
+
+  /* fullscreen поведение */
+  #wink-player:fullscreen iframe {
+    height: 100vh;
   }
 </style>
 </head>
+
 <body>
 
-<h2>Telepub Mini App — Великолепный век, серия 1</h2>
+<h3>Telepub — просмотр</h3>
 
-<!-- Контейнер для Wink Player -->
-<div id="wink-player" class="video-container"></div>
+<div id="wink-player"></div>
 
-<!-- Кнопки под видео -->
-<div class="btn">
-  <a href="https://brand-sense.github.io/tma_traffic_test/?utm_source=telegram&utm_medium=miniapp&utm_campaign=test_tma&utm_content=btn1"
+<div class="controls">
+  <a class="buy"
+     href="https://brand-sense.github.io/tma_traffic_test/?utm_source=telegram&utm_medium=miniapp&utm_campaign=test_tma&utm_content=btn1"
      target="_blank">
     Купить
   </a>
-  <button class="fullscreen-btn" onclick="toggleFullscreen()">Полный экран</button>
+
+  <button class="fullscreen" onclick="openFullscreen()">⛶ Развернуть</button>
 </div>
 
-<!-- UMD SDK Wink -->
 <script src="https://static-adtech.wink.ru/embed-sdk/winkembed.umd.js"></script>
+
 <script>
   const container = document.getElementById("wink-player");
 
-  // Вставка плеера через Wink SDK
   const frame = WinkEmbedSDK.api.insertFrame(container, {
-    trackId: 149613484,   // Великолепный век, серия 1
+    trackId: 149613484,
     partnerId: 'P0',
     frameOptions: {
       width: "100%",
@@ -90,18 +90,81 @@
 
   const { events } = WinkEmbedSDK;
 
-  frame.on(events.AD_END, ({ ad_place_type, ad_position, duration }) => {
-    console.log("Реклама завершена:", ad_place_type, ad_position, duration);
-  });
+  // =========================
+  // 🚀 AUTO FULLSCREEN
+  // =========================
+  function openFullscreen() {
+    if (container.requestFullscreen) {
+      container.requestFullscreen();
+    } else if (container.webkitRequestFullscreen) {
+      container.webkitRequestFullscreen();
+    }
 
-  frame.on(events.PLAYBACK_END, ({ content_id, ads_shown, position }) => {
-    console.log("Видео завершено:", content_id, ads_shown, position);
-  });
-
-  // Функция для раскрытия видео на полный экран
-  function toggleFullscreen() {
-    container.classList.toggle("fullscreen");
+    // попытка повернуть экран
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
   }
+
+  // автозапуск fullscreen при старте видео
+  frame.on(events.PLAYBACK_START, () => {
+    console.log("▶️ Видео началось");
+
+    openFullscreen();
+    sendEvent("playback_start");
+  });
+
+  // =========================
+  // 📊 ТРЕКИНГ (AdFox / метрика)
+  // =========================
+
+  function sendEvent(name, data = {}) {
+    console.log("TRACK:", name, data);
+
+    // пример — можно отправлять в метрику
+    if (window.ym) {
+      ym(XXXXXX, 'reachGoal', name, data); // вставь ID метрики
+    }
+
+    // или пиксель
+    /*
+    fetch(`https://your-tracker.com/event?e=${name}`);
+    */
+  }
+
+  frame.on(events.AD_PLAYBACK, ({ ad_place_type, ad_position }) => {
+    sendEvent("ad_impression", {
+      type: ad_place_type,
+      pos: ad_position
+    });
+  });
+
+  frame.on(events.AD_END, ({ ad_place_type, ad_position }) => {
+    sendEvent("ad_end", {
+      type: ad_place_type,
+      pos: ad_position
+    });
+  });
+
+  frame.on(events.AD_SKIP, () => {
+    sendEvent("ad_skip");
+  });
+
+  frame.on(events.AD_ERROR, () => {
+    sendEvent("ad_error");
+  });
+
+  frame.on(events.PLAYBACK_END, () => {
+    sendEvent("content_end");
+  });
+
+  // =========================
+  // fallback — клик = fullscreen
+  // =========================
+  container.addEventListener("click", () => {
+    openFullscreen();
+  });
+
 </script>
 
 </body>
